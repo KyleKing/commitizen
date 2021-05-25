@@ -1,5 +1,6 @@
 import re
 from collections import OrderedDict
+from datetime import datetime
 from itertools import zip_longest
 from string import Template
 from typing import List, Optional, Union
@@ -233,9 +234,10 @@ def create_tag(version: Union[Version, str], tag_format: Optional[str] = None):
         prerelease = f"{version.pre[0]}{version.pre[1]}"
 
     t = Template(tag_format)
-    return t.safe_substitute(
+    t_ver = t.safe_substitute(
         version=version, major=major, minor=minor, patch=patch, prerelease=prerelease
     )
+    return datetime.utcnow().strftime(t_ver)
 
 
 def create_commit_message(
