@@ -5,6 +5,7 @@
 [![Supported versions](https://img.shields.io/pypi/pyversions/commitizen.svg?style=flat-square)](https://pypi.org/project/commitizen/)
 [![homebrew](https://img.shields.io/homebrew/v/commitizen?color=teal&style=flat-square)](https://formulae.brew.sh/formula/commitizen)
 [![Codecov](https://img.shields.io/codecov/c/github/commitizen-tools/commitizen.svg?style=flat-square)](https://codecov.io/gh/commitizen-tools/commitizen)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?style=flat-square&logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
 ![Using commitizen cli](images/demo.gif)
 
@@ -177,7 +178,7 @@ See [Third-Party Commitizen Templates](third-party-commitizen.md).
 ### Why are `revert` and `chore` valid types in the check pattern of cz conventional_commits but not types we can select?
 
 `revert` and `chore` are added to the "pattern" in `cz check` in order to prevent backward errors, but officially they are not part of conventional commits, we are using the latest [types from Angular](https://github.com/angular/angular/blob/22b96b9/CONTRIBUTING.md#type) (they used to but were removed).
-However, you can create a customized `cz` with those extra types. (See [Customization](https://commitizen-tools.github.io/commitizen/customization/))
+However, you can create a customized `cz` with those extra types. (See [Customization](https://commitizen-tools.github.io/commitizen/customization))
 
 See more discussion in issue [#142](https://github.com/commitizen-tools/commitizen/issues/142) and [#36](https://github.com/commitizen-tools/commitizen/issues/36)
 

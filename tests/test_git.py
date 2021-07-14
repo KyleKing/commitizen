@@ -1,4 +1,5 @@
 import inspect
+import shutil
 from typing import List, Optional
 
 import pytest
@@ -19,9 +20,9 @@ def test_git_object_eq():
 
 def test_get_tags(mocker):
     tag_str = (
-        "v1.0.0---inner_delimiter---333---inner_delimiter---2020-01-20\n"
-        "v0.5.0---inner_delimiter---222---inner_delimiter---2020-01-17\n"
-        "v0.0.1---inner_delimiter---111---inner_delimiter---2020-01-17\n"
+        "v1.0.0---inner_delimiter---333---inner_delimiter---2020-01-20---inner_delimiter---\n"
+        "v0.5.0---inner_delimiter---222---inner_delimiter---2020-01-17---inner_delimiter---\n"
+        "v0.0.1---inner_delimiter---111---inner_delimiter---2020-01-17---inner_delimiter---\n"
     )
     mocker.patch("commitizen.cmd.run", return_value=FakeCommand(out=tag_str))
 
@@ -137,6 +138,27 @@ def test_get_commits_without_breakline_in_each_commit(mocker):
     )
 
 
+def test_get_commits_with_signature():
+    config_file = ".git/config"
+    config_backup = ".git/config.bak"
+    shutil.copy(config_file, config_backup)
+
+    try:
+        # temporarily turn on --show-signature
+        cmd.run("git config log.showsignature true")
+
+        # retrieve a commit that we know has a signature
+        commit = git.get_commits(
+            start="bec20ebf433f2281c70f1eb4b0b6a1d0ed83e9b2",
+            end="9eae518235d051f145807ddf971ceb79ad49953a",
+        )[0]
+
+        assert commit.title.startswith("fix")
+    finally:
+        # restore the repo's original config
+        shutil.move(config_backup, config_file)
+
+
 def test_get_tag_names_has_correct_arrow_annotation():
     arrow_annotation = inspect.getfullargspec(git.get_tag_names).annotations["return"]
 
@@ -152,3 +174,14 @@ def test_get_latest_tag_name(tmp_commitizen_project):
         cmd.run("git tag 1.0")
         tag_name = git.get_latest_tag_name()
         assert tag_name == "1.0"
+
+
+def test_is_staging_clean(tmp_commitizen_project):
+    with tmp_commitizen_project.as_cwd():
+        assert git.is_staging_clean() is True
+
+        cmd.run("touch test_file")
+        cmd.run("git add test_file")
+        cmd.run("echo 'test' > test_file")
+
+        assert git.is_staging_clean() is False

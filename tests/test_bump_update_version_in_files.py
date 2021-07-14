@@ -1,101 +1,73 @@
-import re
+from shutil import copyfile
 
 import pytest
+from py._path.local import LocalPath
 
 from commitizen import bump
 from commitizen.exceptions import CurrentVersionNotFoundError
 
-PYPROJECT = """
-[tool.poetry]
-name = "commitizen"
-version = "1.2.3"
-"""
-
-VERSION_PY = """
-__title__ = 'requests'
-__description__ = 'Python HTTP for Humans.'
-__url__ = 'http://python-requests.org'
-__version__ = '1.2.3'
-"""
-
-INCONSISTENT_VERSION_PY = """
-__title__ = 'requests'
-__description__ = 'Python HTTP for Humans.'
-__url__ = 'http://python-requests.org'
-__version__ = '2.10.3'
-"""
-
-REPEATED_VERSION_NUMBER = """
-{
-  "name": "magictool",
-  "version": "1.2.3",
-  "dependencies": {
-      "lodash": "1.2.3"
-  }
-}
-"""
-
-# The order cannot be guaranteed here
-CARGO_LOCK = """
-[[package]]
-name = "textwrap"
-version = "1.2.3"
-
-[[package]]
-name = "there-i-fixed-it"
-version = "1.2.3"
-
-[[package]]
-name = "other-project"
-version = "1.2.3"
-"""
-
-DOCKER_COMPOSE = """
-version: "3.3"
-
-services:
-  app:
-    image: my-repo/my-container:v1.2.3
-  command: my-command
-"""
-
 MULTIPLE_VERSIONS_INCREASE_STRING = 'version = "1.2.9"\n' * 30
 MULTIPLE_VERSIONS_REDUCE_STRING = 'version = "1.2.10"\n' * 30
+
+TESTING_FILE_PREFIX = "tests/data"
+
+
+def _copy_sample_file_to_tmpdir(
+    tmpdir: LocalPath, source_filename: str, dest_filename: str
+) -> str:
+    tmp_file = tmpdir.join(dest_filename)
+    copyfile(f"{TESTING_FILE_PREFIX}/{source_filename}", str(tmp_file))
+    return str(tmp_file)
 
 
 @pytest.fixture(scope="function")
 def commitizen_config_file(tmpdir):
-    tmp_file = tmpdir.join("pyproject.toml")
-    tmp_file.write(PYPROJECT)
-    return str(tmp_file)
+    return _copy_sample_file_to_tmpdir(
+        tmpdir, "sample_pyproject.toml", "pyproject.toml"
+    )
 
 
 @pytest.fixture(scope="function")
-def python_version_file(tmpdir):
-    tmp_file = tmpdir.join("__verion__.py")
-    tmp_file.write(VERSION_PY)
-    return str(tmp_file)
+def python_version_file(tmpdir, request):
+    return _copy_sample_file_to_tmpdir(tmpdir, "sample_version.py", "__version__.py")
 
 
 @pytest.fixture(scope="function")
 def inconsistent_python_version_file(tmpdir):
-    tmp_file = tmpdir.join("__verion__.py")
-    tmp_file.write(INCONSISTENT_VERSION_PY)
-    return str(tmp_file)
+    return _copy_sample_file_to_tmpdir(
+        tmpdir, "inconsistent_version.py", "__version__.py"
+    )
 
 
 @pytest.fixture(scope="function")
 def random_location_version_file(tmpdir):
-    tmp_file = tmpdir.join("Cargo.lock")
-    tmp_file.write(CARGO_LOCK)
-    return str(tmp_file)
+    return _copy_sample_file_to_tmpdir(tmpdir, "sample_cargo.lock", "Cargo.lock")
 
 
 @pytest.fixture(scope="function")
 def version_repeated_file(tmpdir):
-    tmp_file = tmpdir.join("package.json")
-    tmp_file.write(REPEATED_VERSION_NUMBER)
-    return str(tmp_file)
+    return _copy_sample_file_to_tmpdir(
+        tmpdir, "repeated_version_number.json", "package.json"
+    )
+
+
+@pytest.fixture(scope="function")
+def docker_compose_file(tmpdir):
+    return _copy_sample_file_to_tmpdir(
+        tmpdir, "sample_docker_compose.yaml", "docker-compose.yaml"
+    )
+
+
+@pytest.fixture(
+    scope="function",
+    params=(
+        "multiple_versions_to_update_pyproject.toml",
+        "multiple_versions_to_update_pyproject_wo_eol.toml",
+    ),
+    ids=("with_eol", "without_eol"),
+)
+def multiple_versions_to_update_poetry_lock(tmpdir, request):
+    return _copy_sample_file_to_tmpdir(tmpdir, request.param, "pyproject.toml")
 
 
 @pytest.fixture(scope="function")
@@ -113,38 +85,33 @@ def multiple_versions_reduce_string(tmpdir):
 
 
 @pytest.fixture(scope="function")
-def docker_compose_file(tmpdir):
-    tmp_file = tmpdir.join("docker-compose.yaml")
-    tmp_file.write(DOCKER_COMPOSE)
-    return str(tmp_file)
-
-
-@pytest.fixture(scope="function")
 def version_files(
     commitizen_config_file,
     python_version_file,
     version_repeated_file,
     docker_compose_file,
 ):
-    return [
+    return (
         commitizen_config_file,
         python_version_file,
         version_repeated_file,
         docker_compose_file,
-    ]
+    )
 
 
-def test_update_version_in_files(version_files):
+def test_update_version_in_files(version_files, file_regression):
     old_version = "1.2.3"
     new_version = "2.0.0"
     bump.update_version_in_files(old_version, new_version, version_files)
+
+    file_contents = ""
     for filepath in version_files:
         with open(filepath, "r") as f:
-            data = f.read()
-        assert new_version in data
+            file_contents += f.read()
+    file_regression.check(file_contents, extension=".txt")
 
 
-def test_partial_update_of_file(version_repeated_file):
+def test_partial_update_of_file(version_repeated_file, file_regression):
     old_version = "1.2.3"
     new_version = "2.0.0"
     regex = "version"
@@ -152,59 +119,53 @@ def test_partial_update_of_file(version_repeated_file):
 
     bump.update_version_in_files(old_version, new_version, [location])
     with open(version_repeated_file, "r") as f:
-        data = f.read()
-        assert new_version in data
-        assert old_version in data
+        file_regression.check(f.read(), extension=".json")
 
 
-def test_random_location(random_location_version_file):
+def test_random_location(random_location_version_file, file_regression):
     old_version = "1.2.3"
     new_version = "2.0.0"
     location = f"{random_location_version_file}:there-i-fixed-it.+\nversion"
 
     bump.update_version_in_files(old_version, new_version, [location])
     with open(random_location_version_file, "r") as f:
-        data = f.read()
-        assert len(re.findall(old_version, data)) == 2
-        assert len(re.findall(new_version, data)) == 1
+        file_regression.check(f.read(), extension=".lock")
 
 
-def test_duplicates_are_change_with_no_regex(random_location_version_file):
+def test_duplicates_are_change_with_no_regex(
+    random_location_version_file, file_regression
+):
     old_version = "1.2.3"
     new_version = "2.0.0"
     location = f"{random_location_version_file}:version"
 
     bump.update_version_in_files(old_version, new_version, [location])
     with open(random_location_version_file, "r") as f:
-        data = f.read()
-        assert len(re.findall(old_version, data)) == 0
-        assert len(re.findall(new_version, data)) == 3
+        file_regression.check(f.read(), extension=".lock")
 
 
-def test_version_bump_increase_string_length(multiple_versions_increase_string):
+def test_version_bump_increase_string_length(
+    multiple_versions_increase_string, file_regression
+):
     old_version = "1.2.9"
     new_version = "1.2.10"
-    version_bump_change_string_size(
-        multiple_versions_increase_string, old_version, new_version
-    )
-
-
-def test_version_bump_reduce_string_length(multiple_versions_reduce_string):
-    old_version = "1.2.10"
-    new_version = "2.0.0"
-    version_bump_change_string_size(
-        multiple_versions_reduce_string, old_version, new_version
-    )
-
-
-def version_bump_change_string_size(filename, old_version, new_version):
-    location = f"{filename}:version"
+    location = f"{multiple_versions_increase_string}:version"
 
     bump.update_version_in_files(old_version, new_version, [location])
-    with open(filename, "r") as f:
-        data = f.read()
-        assert len(re.findall(old_version, data)) == 0
-        assert len(re.findall(new_version, data)) == 30
+    with open(multiple_versions_increase_string, "r") as f:
+        file_regression.check(f.read(), extension=".txt")
+
+
+def test_version_bump_reduce_string_length(
+    multiple_versions_reduce_string, file_regression
+):
+    old_version = "1.2.10"
+    new_version = "2.0.0"
+    location = f"{multiple_versions_reduce_string}:version"
+
+    bump.update_version_in_files(old_version, new_version, [location])
+    with open(multiple_versions_reduce_string, "r") as f:
+        file_regression.check(f.read(), extension=".txt")
 
 
 def test_file_version_inconsistent_error(
@@ -228,3 +189,15 @@ def test_file_version_inconsistent_error(
         "version_files are possibly inconsistent."
     )
     assert expected_msg in str(excinfo.value)
+
+
+def test_multiplt_versions_to_bump(
+    multiple_versions_to_update_poetry_lock, file_regression
+):
+    old_version = "1.2.9"
+    new_version = "1.2.10"
+    location = f"{multiple_versions_to_update_poetry_lock}:version"
+
+    bump.update_version_in_files(old_version, new_version, [location])
+    with open(multiple_versions_to_update_poetry_lock, "r") as f:
+        file_regression.check(f.read(), extension=".toml")

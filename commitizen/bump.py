@@ -186,21 +186,18 @@ def _bump_with_regex(version_file_contents, current_version, new_version, regex)
     for match in re.finditer(regex, version_file_contents, re.MULTILINE):
         left = version_file_contents[: match.end() + offset]
         right = version_file_contents[match.end() + offset :]
-        line_break = _get_line_break_position(right)
+
+        line_break = right.find("\n")
         middle = right[:line_break]
-        current_version_found_in_block = current_version in middle
-        offset += len(new_version) - len(current_version)
-        current_version_found |= current_version_found_in_block
         right = right[line_break:]
-        version_file_contents = (
-            left + middle.replace(current_version, new_version) + right
-        )
+
+        if current_version in middle:
+            offset += len(new_version) - len(current_version)
+            current_version_found = True
+            version_file_contents = (
+                left + middle.replace(current_version, new_version) + right
+            )
     return current_version_found, version_file_contents
-
-
-def _get_line_break_position(text: str) -> int:
-    position = text.find("\n")
-    return max(position, 0)
 
 
 def _version_to_regex(version: str):

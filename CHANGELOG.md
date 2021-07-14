@@ -1,4 +1,43 @@
 
+## v2.17.13 (2021-07-14)
+
+## v2.17.12 (2021-07-06)
+
+### Fix
+
+- **git.py**: ensure signed commits in changelog when git config log.showsignature=true
+
+## v2.17.11 (2021-06-24)
+
+### Fix
+
+- correct indentation for json config for better readability
+
+## v2.17.10 (2021-06-22)
+
+### Fix
+
+- add support for jinja2 v3
+
+## v2.17.9 (2021-06-11)
+
+### Fix
+
+- **changelog**: generating changelog after a pre-release
+
+## v2.17.8 (2021-05-28)
+
+### Fix
+
+- **changelog**: annotated tags not generating proper changelog
+
+## v2.17.7 (2021-05-26)
+
+### Fix
+
+- **bump**: fix error due to bumping version file without eol through regex
+- **bump**: fix offset error due to partially match
+
 ## v2.17.6 (2021-05-06)
 
 ### Fix
